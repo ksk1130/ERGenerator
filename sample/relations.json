@@ -1,0 +1,15 @@
+{
+  "OrderSystem": {
+    "tables": ["Orders", "OrderDetails", "Menus"],
+    "relations": [
+      { "from": "Orders", "to": "OrderDetails", "type": "1:N", "label": "含む" },
+      { "from": "Menus", "to": "OrderDetails", "type": "1:N", "label": "参照" }
+    ]
+  },
+  "UserSystem": {
+    "tables": ["Users", "Orders"],
+    "relations": [
+      { "from": "Users", "to": "Orders", "type": "1:N", "label": "注文履歴" }
+    ]
+  }
+}
