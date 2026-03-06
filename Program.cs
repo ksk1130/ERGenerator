@@ -219,13 +219,16 @@ class Program
     {
         var tables = new List<Table>();
         var rels = new List<Relationship>();
-        var tableRegex = new Regex(@"CREATE TABLE ([\w.]+) \((.*?)\);", RegexOptions.Singleline | RegexOptions.IgnoreCase);
+        var tableRegex = new Regex(@"CREATE\s+TABLE\s+([\w.]+)\s*\((.*?)\)\s*(?:COMMENT\s+'.*?')?\s*;", RegexOptions.Singleline | RegexOptions.IgnoreCase);
+
+        static string NormalizeTableName(string rawTableName)
+        {
+            return rawTableName.Contains('.') ? rawTableName.Split('.').Last() : rawTableName;
+        }
 
         foreach (Match tableMatch in tableRegex.Matches(ddl))
         {
-            var tableName = tableMatch.Groups[1].Value;
-            // スキーマを除去（スキーマ.テーブル名 → テーブル名）
-            tableName = tableName.Contains('.') ? tableName.Split('.')[1] : tableName;
+            var tableName = NormalizeTableName(tableMatch.Groups[1].Value);
             var body = tableMatch.Groups[2].Value;
 
             // PK/FK 解析
@@ -236,17 +239,18 @@ class Program
             var fkRegex = new Regex(@"FOREIGN KEY\s*\((.*?)\)\s+REFERENCES\s+([\w.]+)", RegexOptions.IgnoreCase);
             foreach (Match fkMatch in fkRegex.Matches(body))
             {
-                var refTableName = fkMatch.Groups[2].Value;
-                // 参照先テーブルのスキーマも除去
-                refTableName = refTableName.Contains('.') ? refTableName.Split('.')[1] : refTableName;
+                var refTableName = NormalizeTableName(fkMatch.Groups[2].Value);
                 rels.Add(new Relationship(refTableName, tableName, "||--o{", "fk"));
             }
 
             // カラム解析
             var columns = new List<Column>();
-            var lines = body.Split('\n').Select(l => l.Trim().TrimEnd(',')).Where(l => !string.IsNullOrEmpty(l));
-            foreach (var line in lines)
+            var lines = body.Split('\n');
+            foreach (var rawLine in lines)
             {
+                // 行内コメントを除去し、カンマ終端を吸収する
+                var line = Regex.Replace(rawLine, @"--.*$", "").Trim().TrimEnd(',').Trim();
+                if (string.IsNullOrEmpty(line)) continue;
                 if (line.StartsWith("PRIMARY KEY", StringComparison.OrdinalIgnoreCase) || line.StartsWith("FOREIGN KEY", StringComparison.OrdinalIgnoreCase)) continue;
                 var parts = Regex.Split(line, @"\s+");
                 if (parts.Length < 2) continue;
