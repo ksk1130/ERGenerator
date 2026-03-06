@@ -217,11 +217,13 @@ class Program
     {
         var tables = new List<Table>();
         var rels = new List<Relationship>();
-        var tableRegex = new Regex(@"CREATE TABLE (\w+) \((.*?)\);", RegexOptions.Singleline | RegexOptions.IgnoreCase);
+        var tableRegex = new Regex(@"CREATE TABLE ([\w.]+) \((.*?)\);", RegexOptions.Singleline | RegexOptions.IgnoreCase);
 
         foreach (Match tableMatch in tableRegex.Matches(ddl))
         {
             var tableName = tableMatch.Groups[1].Value;
+            // スキーマを除去（スキーマ.テーブル名 → テーブル名）
+            tableName = tableName.Contains('.') ? tableName.Split('.')[1] : tableName;
             var body = tableMatch.Groups[2].Value;
 
             // PK/FK 解析
@@ -229,9 +231,14 @@ class Program
             var pkMatch = Regex.Match(body, @"PRIMARY KEY\s*\((.*?)\)", RegexOptions.IgnoreCase);
             if (pkMatch.Success) foreach (var p in pkMatch.Groups[1].Value.Split(',').Select(x => x.Trim())) pkCols.Add(p);
 
-            var fkRegex = new Regex(@"FOREIGN KEY\s*\((.*?)\)\s+REFERENCES\s+(\w+)", RegexOptions.IgnoreCase);
+            var fkRegex = new Regex(@"FOREIGN KEY\s*\((.*?)\)\s+REFERENCES\s+([\w.]+)", RegexOptions.IgnoreCase);
             foreach (Match fkMatch in fkRegex.Matches(body))
-                rels.Add(new Relationship(fkMatch.Groups[2].Value, tableName, "||--o{", "fk"));
+            {
+                var refTableName = fkMatch.Groups[2].Value;
+                // 参照先テーブルのスキーマも除去
+                refTableName = refTableName.Contains('.') ? refTableName.Split('.')[1] : refTableName;
+                rels.Add(new Relationship(refTableName, tableName, "||--o{", "fk"));
+            }
 
             // カラム解析
             var columns = new List<Column>();
