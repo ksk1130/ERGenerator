@@ -226,6 +226,50 @@ class Program
             return rawTableName.Contains('.') ? rawTableName.Split('.').Last() : rawTableName;
         }
 
+        static (string Name, string Type)? ParseColumnDefinition(string line)
+        {
+            // 制約語（NOT NULL, DEFAULT など）より前を型として抽出する
+            var match = Regex.Match(
+                line,
+                @"^(?<name>\S+)\s+(?<rest>.+)$",
+                RegexOptions.IgnoreCase);
+
+            if (!match.Success)
+            {
+                return null;
+            }
+
+            var columnName = match.Groups["name"].Value;
+            var rest = match.Groups["rest"].Value;
+            var constraintKeywords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "NOT", "NULL", "DEFAULT", "PRIMARY", "UNIQUE", "CHECK", "REFERENCES", "CONSTRAINT", "COMMENT"
+            };
+
+            var rawTokens = Regex.Split(rest.Trim(), @"\s+").Where(t => !string.IsNullOrWhiteSpace(t));
+            var typeTokens = new List<string>();
+            foreach (var token in rawTokens)
+            {
+                var normalized = token.Trim().TrimEnd(',');
+                if (constraintKeywords.Contains(normalized))
+                {
+                    break;
+                }
+                typeTokens.Add(normalized);
+            }
+
+            var typePart = string.Join(" ", typeTokens);
+            var withoutSize = Regex.Replace(typePart, @"\s*\([^)]*\)", "");
+            var columnType = Regex.Replace(withoutSize, @"\s+", " ").Trim().TrimEnd(',');
+
+            if (string.IsNullOrEmpty(columnType))
+            {
+                return null;
+            }
+
+            return (columnName, columnType);
+        }
+
         foreach (Match tableMatch in tableRegex.Matches(ddl))
         {
             var tableName = NormalizeTableName(tableMatch.Groups[1].Value);
@@ -252,9 +296,9 @@ class Program
                 var line = Regex.Replace(rawLine, @"--.*$", "").Trim().TrimEnd(',').Trim();
                 if (string.IsNullOrEmpty(line)) continue;
                 if (line.StartsWith("PRIMARY KEY", StringComparison.OrdinalIgnoreCase) || line.StartsWith("FOREIGN KEY", StringComparison.OrdinalIgnoreCase)) continue;
-                var parts = Regex.Split(line, @"\s+");
-                if (parts.Length < 2) continue;
-                columns.Add(new Column(parts[0], parts[1], line.Contains("PRIMARY KEY", StringComparison.OrdinalIgnoreCase) || pkCols.Contains(parts[0])));
+                var parsed = ParseColumnDefinition(line);
+                if (!parsed.HasValue) continue;
+                columns.Add(new Column(parsed.Value.Name, parsed.Value.Type, line.Contains("PRIMARY KEY", StringComparison.OrdinalIgnoreCase) || pkCols.Contains(parsed.Value.Name)));
             }
             tables.Add(new Table(tableName, columns));
         }
@@ -267,7 +311,12 @@ class Program
         foreach (var t in tables)
         {
             sb.AppendLine($"    {t.Name} {{");
-            foreach (var c in t.Columns) sb.AppendLine($"        {c.Type} {c.Name} {(c.IsPrimaryKey ? "PK" : "")}");
+            foreach (var c in t.Columns)
+            {
+                // Mermaid ERDの型名は空白をアンダースコアに置換
+                var mermaidType = c.Type.Replace(" ", "_");
+                sb.AppendLine($"        {mermaidType} {c.Name} {(c.IsPrimaryKey ? "PK" : "")}");
+            }
             sb.AppendLine("    }");
         }
         foreach (var r in rels) sb.AppendLine($"    {r.TableA} {r.Notation} {r.TableB} : \"{r.Label}\"");
