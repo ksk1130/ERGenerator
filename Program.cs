@@ -5,15 +5,61 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using System.Text.Json;
 
 // データ構造
-record Column(string Name, string Type, bool IsPrimaryKey);
-record Table(string Name, List<Column> Columns);
-record Relationship(string TableA, string TableB, string Notation, string Label);
+class Column
+{
+    public string Name { get; set; }
+    public string Type { get; set; }
+    public bool IsPrimaryKey { get; set; }
+    public Column(string name, string type, bool isPrimaryKey)
+    {
+        Name = name;
+        Type = type;
+        IsPrimaryKey = isPrimaryKey;
+    }
+}
+
+class Table
+{
+    public string Name { get; set; }
+    public List<Column> Columns { get; set; }
+    public Table(string name, List<Column> columns)
+    {
+        Name = name;
+        Columns = columns;
+    }
+}
+
+class Relationship
+{
+    public string TableA { get; set; }
+    public string TableB { get; set; }
+    public string Notation { get; set; }
+    public string Label { get; set; }
+    public Relationship(string tableA, string tableB, string notation, string label)
+    {
+        TableA = tableA;
+        TableB = tableB;
+        Notation = notation;
+        Label = label;
+    }
+}
+
 // JSON読み込み用
-record JsonRelation(string from, string to, string type, string label);
-record SubSystemDef(List<string> tables, List<JsonRelation> relations);
+class JsonRelation
+{
+    public string from { get; set; }
+    public string to { get; set; }
+    public string type { get; set; }
+    public string label { get; set; }
+}
+
+class SubSystemDef
+{
+    public List<string> tables { get; set; }
+    public List<JsonRelation> relations { get; set; }
+}
 
 class Program
 {
@@ -102,16 +148,18 @@ class Program
                 Console.WriteLine($"Loaded {subsystems.Count} subsystems from relations.json\n");
                 
                 // サブシステムごとに HTML を生成
-                foreach (var (subsystemName, subsystem) in subsystems)
+                foreach (var kvp in subsystems)
                 {
+                    var subsystemName = kvp.Key;
+                    var subsystem = kvp.Value;
                     Console.WriteLine($"Processing subsystem: {subsystemName}");
                     
                     // このサブシステムに含まれるテーブルをフィルタリング
                     var subsystemTables = allTables
-                        .Where(t => subsystem.tables.Contains(t.Name))
+                        .Where(t => subsystem.tables != null && subsystem.tables.IndexOf(t.Name) >= 0)
                         .ToList();
                     
-                    Console.WriteLine($"  Tables: {string.Join(", ", subsystem.tables)}");
+                    Console.WriteLine($"  Tables: {string.Join(", ", subsystem.tables ?? new List<string>())}");
                     
                     // リレーションを変換
                     var rels = new List<Relationship>();
@@ -298,7 +346,8 @@ class Program
                 if (line.StartsWith("PRIMARY KEY", StringComparison.OrdinalIgnoreCase) || line.StartsWith("FOREIGN KEY", StringComparison.OrdinalIgnoreCase)) continue;
                 var parsed = ParseColumnDefinition(line);
                 if (!parsed.HasValue) continue;
-                columns.Add(new Column(parsed.Value.Name, parsed.Value.Type, line.Contains("PRIMARY KEY", StringComparison.OrdinalIgnoreCase) || pkCols.Contains(parsed.Value.Name)));
+                var isPK = line.ToUpper().Contains("PRIMARY KEY") || (pkCols != null && pkCols.Contains(parsed.Value.Name));
+                columns.Add(new Column(parsed.Value.Name, parsed.Value.Type, isPK));
             }
             tables.Add(new Table(tableName, columns));
         }

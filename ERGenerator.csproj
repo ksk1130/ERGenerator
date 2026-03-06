@@ -2,11 +2,41 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <InvariantGlobalization>true</InvariantGlobalization>
-    <StackTraceSupport>false</StackTraceSupport>
+    <TargetFrameworks>net10.0;net48</TargetFrameworks>
+    <ImplicitUsings Condition="'$(TargetFramework)' == 'net10.0'">enable</ImplicitUsings>
+    <Nullable Condition="'$(TargetFramework)' == 'net10.0'">enable</Nullable>
+    <LangVersion Condition="'$(TargetFramework)' == 'net48'">9.0</LangVersion>
+    <InvariantGlobalization Condition="'$(TargetFramework)' == 'net10.0'">true</InvariantGlobalization>
+    <StackTraceSupport Condition="'$(TargetFramework)' == 'net10.0'">false</StackTraceSupport>
   </PropertyGroup>
+
+  <!-- net10.0用：ランタイム含む設定 -->
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <DebugType>embedded</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <TrimMode>link</TrimMode>
+  </PropertyGroup>
+
+  <!-- net4.8用：ランタイムなし（フレームワーク依存型） -->
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net48'">
+    <SelfContained>false</SelfContained>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
+    <PackageReference Include="System.Text.Json" Version="8.0.0" />
+    <PackageReference Include="Costura.Fody" Version="5.7.0" PrivateAssets="All" />
+    <PackageReference Include="Fody" Version="6.8.1" PrivateAssets="All" />
+    <None Include="FodyWeavers.xml" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="FodyWeavers.xml" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- Fody設定ファイル生成 -->
+  <Target Name="GenerateFodyWeavers" BeforeTargets="Build" Condition="'$(TargetFramework)' == 'net48'">
+    <ItemGroup>
+      <FodyWeavers Include="$(ProjectDir)FodyWeavers.xml" />
+    </ItemGroup>
+  </Target>
 
 </Project>
