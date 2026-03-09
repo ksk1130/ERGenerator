@@ -7,11 +7,20 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 
 // データ構造
+/// <summary>
+/// テーブルのカラム定義を表します。
+/// </summary>
 class Column
 {
     public string Name { get; set; }
     public string Type { get; set; }
     public bool IsPrimaryKey { get; set; }
+    /// <summary>
+    /// Column クラスの新しいインスタンスを初期化します。
+    /// </summary>
+    /// <param name="name">カラム名。</param>
+    /// <param name="type">カラム型。</param>
+    /// <param name="isPrimaryKey">主キーかどうか。</param>
     public Column(string name, string type, bool isPrimaryKey)
     {
         Name = name;
@@ -20,10 +29,18 @@ class Column
     }
 }
 
+/// <summary>
+/// テーブル定義を表します。
+/// </summary>
 class Table
 {
     public string Name { get; set; }
     public List<Column> Columns { get; set; }
+    /// <summary>
+    /// Table クラスの新しいインスタンスを初期化します。
+    /// </summary>
+    /// <param name="name">テーブル名。</param>
+    /// <param name="columns">カラム一覧。</param>
     public Table(string name, List<Column> columns)
     {
         Name = name;
@@ -31,12 +48,22 @@ class Table
     }
 }
 
+/// <summary>
+/// テーブル間リレーション定義を表します。
+/// </summary>
 class Relationship
 {
     public string TableA { get; set; }
     public string TableB { get; set; }
     public string Notation { get; set; }
     public string Label { get; set; }
+    /// <summary>
+    /// Relationship クラスの新しいインスタンスを初期化します。
+    /// </summary>
+    /// <param name="tableA">リレーション元テーブル名。</param>
+    /// <param name="tableB">リレーション先テーブル名。</param>
+    /// <param name="notation">Mermaid 形式の多重度記号。</param>
+    /// <param name="label">リレーションラベル。</param>
     public Relationship(string tableA, string tableB, string notation, string label)
     {
         TableA = tableA;
@@ -47,6 +74,9 @@ class Relationship
 }
 
 // JSON読み込み用
+/// <summary>
+/// JSON で定義されるリレーション情報を表します。
+/// </summary>
 class JsonRelation
 {
     public string from { get; set; }
@@ -55,15 +85,26 @@ class JsonRelation
     public string label { get; set; }
 }
 
+/// <summary>
+/// サブシステム定義（対象テーブルとリレーション）を表します。
+/// </summary>
 class SubSystemDef
 {
     public List<string> tables { get; set; }
     public List<JsonRelation> relations { get; set; }
 }
 
+/// <summary>
+/// ER 図生成処理のエントリポイントと主要処理を提供します。
+/// </summary>
 class Program
 {
     // 多重度タイプをMermaidの記号に変換
+    /// <summary>
+    /// 多重度タイプ文字列を Mermaid の記号表現に変換します。
+    /// </summary>
+    /// <param name="type">多重度タイプ（例: 1:N）。</param>
+    /// <returns>Mermaid 形式の多重度記号。</returns>
     static string ConvertTypeToNotation(string type)
     {
         return type?.ToLower() switch
@@ -81,6 +122,10 @@ class Program
         };
     }
 
+    /// <summary>
+    /// アプリケーションのメインエントリポイントです。
+    /// </summary>
+    /// <param name="args">コマンドライン引数。</param>
     static void Main(string[] args)
     {
         // 引数チェック
@@ -189,6 +234,11 @@ class Program
         }
     }
 
+    /// <summary>
+    /// Mermaid 定義文字列を埋め込んだ表示用 HTML を生成します。
+    /// </summary>
+    /// <param name="mermaid">Mermaid のER図定義。</param>
+    /// <returns>生成された HTML 文字列。</returns>
     static string GenerateHtml(string mermaid)
     {
         return $@"<!DOCTYPE html>
@@ -263,17 +313,32 @@ class Program
 </html>";
     }
 
+    /// <summary>
+    /// DDL 全文を解析してテーブル定義とリレーションを抽出します。
+    /// </summary>
+    /// <param name="ddl">解析対象の DDL 文字列。</param>
+    /// <returns>抽出されたテーブル一覧とリレーション一覧。</returns>
     static (List<Table> Tables, List<Relationship> Rels) ParseDDLFull(string ddl)
     {
         var tables = new List<Table>();
         var rels = new List<Relationship>();
         var tableRegex = new Regex(@"CREATE\s+TABLE\s+([\w.]+)\s*\((.*?)\)\s*(?:COMMENT\s+'.*?')?\s*;", RegexOptions.Singleline | RegexOptions.IgnoreCase);
 
+        /// <summary>
+        /// スキーマ名付きテーブル名を正規化してテーブル名のみを返します。
+        /// </summary>
+        /// <param name="rawTableName">生のテーブル名。</param>
+        /// <returns>正規化したテーブル名。</returns>
         static string NormalizeTableName(string rawTableName)
         {
             return rawTableName.Contains('.') ? rawTableName.Split('.').Last() : rawTableName;
         }
 
+        /// <summary>
+        /// カラム定義行からカラム名と型を抽出します。
+        /// </summary>
+        /// <param name="line">解析対象の1行。</param>
+        /// <returns>抽出結果。解析できない場合は null。</returns>
         static (string Name, string Type)? ParseColumnDefinition(string line)
         {
             // 制約語（NOT NULL, DEFAULT など）より前を型として抽出する
@@ -354,6 +419,12 @@ class Program
         return (tables, rels);
     }
 
+    /// <summary>
+    /// テーブル定義とリレーションから Mermaid ER 図文字列を生成します。
+    /// </summary>
+    /// <param name="tables">描画対象テーブル一覧。</param>
+    /// <param name="rels">描画対象リレーション一覧。</param>
+    /// <returns>Mermaid ER 図文字列。</returns>
     static string GenerateMermaid(List<Table> tables, List<Relationship> rels)
     {
         var sb = new StringBuilder("erDiagram\n");
