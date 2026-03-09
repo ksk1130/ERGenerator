@@ -412,6 +412,7 @@ class Program
                 var parsed = ParseColumnDefinition(line);
                 if (!parsed.HasValue) continue;
                 var isPK = line.ToUpper().Contains("PRIMARY KEY") || (pkCols != null && pkCols.Contains(parsed.Value.Name));
+                Console.WriteLine($"  [DDL] Table={tableName}, Column={parsed.Value.Name}, Type={parsed.Value.Type}, PK={isPK}");
                 columns.Add(new Column(parsed.Value.Name, parsed.Value.Type, isPK));
             }
             tables.Add(new Table(tableName, columns));
