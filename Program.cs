@@ -246,35 +246,68 @@ class Program
 <head>
     <meta charset=""UTF-8"">
     <title>ER Diagram</title>
-    <script src=""https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js""></script>
     <style>
         body {{ font-family: sans-serif; margin: 0; padding: 0; background: #ffffff; overflow: hidden; }}
-        #container {{ width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; overflow: auto; background: #ffffff; }}
-        #diagram {{ background: #ffffff; padding: 40px; }}
-        #zoom-controls {{ position: fixed; top: 20px; right: 20px; z-index: 1000; background: white; padding: 10px; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }}
-        button {{ padding: 8px 12px; margin: 5px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 14px; }}
-        button:hover {{ background: #0056b3; }}
+        #container {{ width: 100vw; height: 100vh; overflow: auto; background: #ffffff; padding-top: 88px; box-sizing: border-box; }}
+        #diagram {{ background: #ffffff; padding: 40px; width: max-content; min-width: 100%; box-sizing: border-box; }}
+        #zoom-controls {{ position: fixed; top: 20px; right: 20px; z-index: 1000; display: flex; align-items: center; gap: 10px; }}
+        #zoom-bar {{ display: inline-flex; align-items: center; background: #007bff; border-radius: 6px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }}
+        .zoom-btn {{ width: 42px; height: 38px; border: none; background: transparent; color: #ffffff; font-size: 22px; line-height: 1; cursor: pointer; }}
+        .zoom-btn:hover {{ background: #0056b3; }}
+        #zoom-level {{ min-width: 74px; text-align: center; color: #ffffff; font-size: 20px; font-weight: 600; letter-spacing: 0.5px; }}
+        #actions {{ display: inline-flex; gap: 8px; }}
+        .action-btn {{ padding: 8px 12px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 14px; }}
+        .action-btn:hover {{ background: #0056b3; }}
+        #layout-controls {{ display: inline-flex; align-items: center; gap: 8px; background: #007bff; padding: 6px 8px; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }}
+        #layout-controls label {{ color: #ffffff; font-size: 13px; font-weight: 600; }}
+        #node-placement {{ height: 32px; padding: 0 8px; border: 1px solid #0056b3; border-radius: 4px; background: #ffffff; color: #1f2937; font-size: 13px; }}
+        #node-placement:hover {{ background: #eef5ff; }}
+        #node-placement option {{ background: #ffffff; color: #1f2937; }}
         .table-title-clickable {{ cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }}
+        #error-message {{ position: fixed; left: 20px; bottom: 20px; max-width: 560px; padding: 12px 16px; color: #b00020; background: rgba(255,255,255,0.95); border: 1px solid #f2b8c4; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.08); display: none; white-space: pre-wrap; }}
     </style>
 </head>
 <body>
     <div id=""zoom-controls"">
-        <button onclick=""zoomIn()"">拡大</button>
-        <button onclick=""zoomOut()"">縮小</button>
-        <button onclick=""resetZoom()"">リセット</button>
-        <button onclick=""expandAll()"">一括展開</button>
-        <button onclick=""collapseAll()"">一括クローズ</button>
+        <div id=""zoom-bar"">
+            <button class=""zoom-btn"" onclick=""zoomOut()"" aria-label=""縮小"">−</button>
+            <div id=""zoom-level"">100%</div>
+            <button class=""zoom-btn"" onclick=""zoomIn()"" aria-label=""拡大"">+</button>
+        </div>
+        <div id=""actions"">
+            <button class=""action-btn"" onclick=""resetZoom()"">リセット</button>
+            <button class=""action-btn"" onclick=""expandAll()"">一括展開</button>
+            <button class=""action-btn"" onclick=""collapseAll()"">一括クローズ</button>
+        </div>
+        <div id=""layout-controls"">
+            <label for=""node-placement"">ELK配置</label>
+            <select id=""node-placement"" onchange=""onNodePlacementChange()"">
+                <option value=""BRANDES_KOEPF"" selected>BRANDES_KOEPF (default)</option>
+                <option value=""LINEAR_SEGMENTS"">LINEAR_SEGMENTS</option>
+                <option value=""NETWORK_SIMPLEX"">NETWORK_SIMPLEX</option>
+                <option value=""SIMPLE"">SIMPLE</option>
+            </select>
+        </div>
     </div>
     <div id=""container"">
         <div id=""diagram""></div>
     </div>
+    <div id=""error-message""></div>
 
-    <script>
+    <script type=""module"">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+        import elkLayouts from 'https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk@0/dist/mermaid-layout-elk.esm.min.mjs';
+
         let currentScale = 1;
         const sourceMermaid = `{mermaid}`;
         const diagram = document.getElementById('diagram');
+        const errorMessage = document.getElementById('error-message');
+        const zoomLevel = document.getElementById('zoom-level');
+        const nodePlacementSelect = document.getElementById('node-placement');
         const collapsedTables = new Set();
         const parsed = parseMermaid(sourceMermaid);
+
+        mermaid.registerLayoutLoaders(elkLayouts);
 
         function parseMermaid(text) {{
             const lines = text.split(/\r?\n/);
@@ -312,7 +345,16 @@ class Program
         }}
 
         function buildMermaid() {{
-            const lines = ['erDiagram'];
+            const strategy = nodePlacementSelect?.value || 'BRANDES_KOEPF';
+            const lines = [
+                '---',
+                'config:',
+                '  layout: elk',
+                '  elk:',
+                `    nodePlacementStrategy: ${{strategy}}`,
+                '---',
+                'erDiagram'
+            ];
 
             for (const table of parsed.tables) {{
                 lines.push(`    ${{table.name}} {{`);
@@ -336,8 +378,25 @@ class Program
             if (!svg) {{
                 return;
             }}
+
+            const viewBox = svg.viewBox?.baseVal;
+            const baseWidth = viewBox && viewBox.width > 0 ? viewBox.width : svg.getBoundingClientRect().width;
+            const baseHeight = viewBox && viewBox.height > 0 ? viewBox.height : svg.getBoundingClientRect().height;
+
+            svg.style.display = 'block';
+            svg.style.width = `${{baseWidth}}px`;
+            svg.style.height = `${{baseHeight}}px`;
             svg.style.transform = `scale(${{currentScale}})`;
-            svg.style.transformOrigin = 'top center';
+            svg.style.transformOrigin = 'top left';
+
+            // transform は見た目だけ拡大するため、親要素のサイズも明示的に拡大してスクロール領域を確保する
+            const padding = 80; // left + right (40px + 40px)
+            diagram.style.width = `${{(baseWidth * currentScale) + padding}}px`;
+            diagram.style.minWidth = `${{Math.max((baseWidth * currentScale) + padding, window.innerWidth)}}px`;
+            diagram.style.height = `${{(baseHeight * currentScale) + padding}}px`;
+
+            const percent = Math.round(currentScale * 100);
+            zoomLevel.textContent = `${{percent}}%`;
         }}
 
         function zoomIn() {{
@@ -378,6 +437,10 @@ class Program
             renderDiagram();
         }}
 
+        function onNodePlacementChange() {{
+            renderDiagram();
+        }}
+
         function bindTableTitleClicks() {{
             const titleTexts = diagram.querySelectorAll('text');
             for (const node of titleTexts) {{
@@ -396,10 +459,19 @@ class Program
         async function renderDiagram() {{
             const mermaidText = buildMermaid();
             const id = `er-diagram-${{Date.now()}}`;
-            const result = await mermaid.render(id, mermaidText);
-            diagram.innerHTML = result.svg;
-            bindTableTitleClicks();
-            updateScale();
+            errorMessage.style.display = 'none';
+
+            try {{
+                const result = await mermaid.render(id, mermaidText);
+                diagram.innerHTML = result.svg;
+                bindTableTitleClicks();
+                updateScale();
+            }} catch (error) {{
+                diagram.innerHTML = '';
+                errorMessage.textContent = `Mermaid の描画に失敗しました。\n${{error instanceof Error ? error.message : String(error)}}`;
+                errorMessage.style.display = 'block';
+                throw error;
+            }}
         }}
 
         // Ctrl + スクロールでもズーム可能
@@ -414,7 +486,14 @@ class Program
             }}
         }});
 
-        mermaid.initialize({{ startOnLoad: false }});
+        window.zoomIn = zoomIn;
+        window.zoomOut = zoomOut;
+        window.resetZoom = resetZoom;
+        window.expandAll = expandAll;
+        window.collapseAll = collapseAll;
+        window.onNodePlacementChange = onNodePlacementChange;
+
+        mermaid.initialize({{ startOnLoad: false, layout: 'elk' }});
         renderDiagram();
     </script>
 </body>

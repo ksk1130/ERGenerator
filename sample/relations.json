@@ -11,5 +11,46 @@
     "relations": [
       { "from": "Users", "to": "Orders", "type": "1:N", "label": "注文履歴" }
     ]
+  },
+  "ComplexCommerceSystem": {
+    "tables": [
+      "Users",
+      "Orders",
+      "OrderItems",
+      "Products",
+      "Categories",
+      "Suppliers",
+      "Regions",
+      "Warehouses",
+      "Inventory",
+      "Payments",
+      "PaymentMethods",
+      "Shipments",
+      "Carriers",
+      "OrderStatusHistory",
+      "Coupons",
+      "OrderCoupons"
+    ],
+    "relations": [
+      { "from": "Users", "to": "Orders", "type": "1:N", "label": "発注" },
+      { "from": "Orders", "to": "OrderItems", "type": "1:N", "label": "明細" },
+      { "from": "Products", "to": "OrderItems", "type": "1:N", "label": "購入対象" },
+      { "from": "Categories", "to": "Products", "type": "1:N", "label": "分類" },
+      { "from": "Categories", "to": "Categories", "type": "0..1:1", "label": "親カテゴリ" },
+      { "from": "Suppliers", "to": "Products", "type": "1:N", "label": "供給" },
+      { "from": "Regions", "to": "Suppliers", "type": "1:N", "label": "所在" },
+      { "from": "Regions", "to": "Warehouses", "type": "1:N", "label": "拠点" },
+      { "from": "Warehouses", "to": "Inventory", "type": "1:N", "label": "在庫" },
+      { "from": "Products", "to": "Inventory", "type": "1:N", "label": "在庫品目" },
+      { "from": "Orders", "to": "Payments", "type": "1:N", "label": "決済" },
+      { "from": "PaymentMethods", "to": "Payments", "type": "1:N", "label": "支払方法" },
+      { "from": "Orders", "to": "Shipments", "type": "1:N", "label": "出荷" },
+      { "from": "Warehouses", "to": "Shipments", "type": "1:N", "label": "出荷元" },
+      { "from": "Carriers", "to": "Shipments", "type": "1:N", "label": "配送" },
+      { "from": "Orders", "to": "OrderStatusHistory", "type": "1:N", "label": "状態履歴" },
+      { "from": "Users", "to": "OrderStatusHistory", "type": "1:N", "label": "更新者" },
+      { "from": "Orders", "to": "OrderCoupons", "type": "1:N", "label": "クーポン適用" },
+      { "from": "Coupons", "to": "OrderCoupons", "type": "1:N", "label": "クーポン" }
+    ]
   }
 }
