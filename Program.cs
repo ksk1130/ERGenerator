@@ -250,31 +250,94 @@ class Program
     <style>
         body {{ font-family: sans-serif; margin: 0; padding: 0; background: #f9f9f9; overflow: hidden; }}
         #container {{ width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; overflow: auto; background: #f9f9f9; }}
-        .mermaid {{ background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
+        #diagram {{ background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
         #zoom-controls {{ position: fixed; top: 20px; right: 20px; z-index: 1000; background: white; padding: 10px; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }}
         button {{ padding: 8px 12px; margin: 5px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 14px; }}
         button:hover {{ background: #0056b3; }}
+        .table-title-clickable {{ cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }}
     </style>
 </head>
 <body>
     <div id=""zoom-controls"">
-        <button onclick=""zoomIn()"">🔍+ 拡大</button>
-        <button onclick=""zoomOut()"">🔍- 縮小</button>
+        <button onclick=""zoomIn()"">拡大</button>
+        <button onclick=""zoomOut()"">縮小</button>
         <button onclick=""resetZoom()"">リセット</button>
+        <button onclick=""expandAll()"">一括展開</button>
+        <button onclick=""collapseAll()"">一括クローズ</button>
     </div>
     <div id=""container"">
-        <pre id=""mermaid-content"" class=""mermaid"">
-{mermaid}
-        </pre>
+        <div id=""diagram""></div>
     </div>
 
     <script>
         let currentScale = 1;
-        const content = document.getElementById('mermaid-content');
+        const sourceMermaid = `{mermaid}`;
+        const diagram = document.getElementById('diagram');
+        const collapsedTables = new Set();
+        const parsed = parseMermaid(sourceMermaid);
+
+        function parseMermaid(text) {{
+            const lines = text.split(/\r?\n/);
+            const tables = [];
+            const relations = [];
+            let currentTable = null;
+
+            for (const raw of lines) {{
+                const line = raw.trim();
+                if (!line || line === 'erDiagram') {{
+                    continue;
+                }}
+
+                const tableStart = line.match(/^([\w.]+)\s*\{{$/);
+                if (tableStart) {{
+                    currentTable = {{ name: tableStart[1], columns: [] }};
+                    tables.push(currentTable);
+                    continue;
+                }}
+
+                if (line === '}}' && currentTable) {{
+                    currentTable = null;
+                    continue;
+                }}
+
+                if (currentTable) {{
+                    currentTable.columns.push(line);
+                    continue;
+                }}
+
+                relations.push(line);
+            }}
+
+            return {{ tables, relations }};
+        }}
+
+        function buildMermaid() {{
+            const lines = ['erDiagram'];
+
+            for (const table of parsed.tables) {{
+                lines.push(`    ${{table.name}} {{`);
+                if (!collapsedTables.has(table.name)) {{
+                    for (const column of table.columns) {{
+                        lines.push(`        ${{column}}`);
+                    }}
+                }}
+                lines.push('    }}');
+            }}
+
+            for (const relation of parsed.relations) {{
+                lines.push(`    ${{relation}}`);
+            }}
+
+            return lines.join('\n');
+        }}
 
         function updateScale() {{
-            content.style.transform = `scale(${{currentScale}})`;
-            content.style.transformOrigin = 'top center';
+            const svg = diagram.querySelector('svg');
+            if (!svg) {{
+                return;
+            }}
+            svg.style.transform = `scale(${{currentScale}})`;
+            svg.style.transformOrigin = 'top center';
         }}
 
         function zoomIn() {{
@@ -294,6 +357,51 @@ class Program
             updateScale();
         }}
 
+        function expandAll() {{
+            collapsedTables.clear();
+            renderDiagram();
+        }}
+
+        function collapseAll() {{
+            for (const table of parsed.tables) {{
+                collapsedTables.add(table.name);
+            }}
+            renderDiagram();
+        }}
+
+        function toggleTable(tableName) {{
+            if (collapsedTables.has(tableName)) {{
+                collapsedTables.delete(tableName);
+            }} else {{
+                collapsedTables.add(tableName);
+            }}
+            renderDiagram();
+        }}
+
+        function bindTableTitleClicks() {{
+            const titleTexts = diagram.querySelectorAll('text');
+            for (const node of titleTexts) {{
+                const label = (node.textContent || '').trim();
+                if (!parsed.tables.some(t => t.name === label)) {{
+                    continue;
+                }}
+
+                const marker = collapsedTables.has(label) ? ' [▶]' : ' [▼]';
+                node.textContent = `${{label}}${{marker}}`;
+                node.classList.add('table-title-clickable');
+                node.addEventListener('click', () => toggleTable(label));
+            }}
+        }}
+
+        async function renderDiagram() {{
+            const mermaidText = buildMermaid();
+            const id = `er-diagram-${{Date.now()}}`;
+            const result = await mermaid.render(id, mermaidText);
+            diagram.innerHTML = result.svg;
+            bindTableTitleClicks();
+            updateScale();
+        }}
+
         // Ctrl + スクロールでもズーム可能
         document.getElementById('container').addEventListener('wheel', (e) => {{
             if (e.ctrlKey) {{
@@ -306,8 +414,8 @@ class Program
             }}
         }});
 
-        mermaid.initialize({{startOnLoad: true}});
-        mermaid.contentLoaded();
+        mermaid.initialize({{ startOnLoad: false }});
+        renderDiagram();
     </script>
 </body>
 </html>";
