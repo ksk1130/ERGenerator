@@ -248,9 +248,9 @@ class Program
     <title>ER Diagram</title>
     <script src=""https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js""></script>
     <style>
-        body {{ font-family: sans-serif; margin: 0; padding: 0; background: #f9f9f9; overflow: hidden; }}
-        #container {{ width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; overflow: auto; background: #f9f9f9; }}
-        #diagram {{ background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
+        body {{ font-family: sans-serif; margin: 0; padding: 0; background: #ffffff; overflow: hidden; }}
+        #container {{ width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; overflow: auto; background: #ffffff; }}
+        #diagram {{ background: #ffffff; padding: 40px; }}
         #zoom-controls {{ position: fixed; top: 20px; right: 20px; z-index: 1000; background: white; padding: 10px; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }}
         button {{ padding: 8px 12px; margin: 5px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 14px; }}
         button:hover {{ background: #0056b3; }}
